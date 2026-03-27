@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Evolucent
+
+A transparent evolution of civic funding. Evolucent is a civic crowdfunding platform that connects communities with public infrastructure projects, enabling transparent contributions and real-time progress tracking.
+
+## Tech Stack
+
+- **Framework:** Next.js (App Router) with React 19 and TypeScript
+- **Database:** PostgreSQL via Neon (serverless) with Prisma ORM
+- **Auth:** NextAuth v5 with Google OAuth
+- **Styling:** Tailwind CSS v4 + shadcn/ui
+- **State:** Zustand + TanStack React Query
+- **PWA:** Installable progressive web app via `@ducanh2912/next-pwa`
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 18+
+- A [Neon](https://neon.tech) PostgreSQL database
+- Google OAuth credentials
+
+### Setup
+
+1. Clone the repo and install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Copy the example env file and fill in your values:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Push the Prisma schema to your database and seed it:
+
+   ```bash
+   npx prisma db push
+   npx prisma db seed
+   ```
+
+4. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+   Open [https://localhost:3000](https://localhost:3000) to view the app.
+
+## Scripts
+
+| Command           | Description                          |
+| ----------------- | ------------------------------------ |
+| `npm run dev`     | Start dev server (HTTPS)             |
+| `npm run build`   | Generate Prisma client + build       |
+| `npm run start`   | Start production server              |
+| `npm run lint`    | Run ESLint                           |
+
+## PWA
+
+Evolucent is a Progressive Web App. In production builds, a service worker is generated automatically. The app can be installed on mobile and desktop for a native-like experience. PWA caching is disabled in development to avoid stale assets.
+
+Icon placeholders are at `public/icons/icon-192x192.png` and `public/icons/icon-512x512.png` — replace these with actual app icons before deploying.
+
+## Project Structure
+
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+app/            # Next.js App Router pages and layouts
+components/     # React components (site-header, offline-indicator, ui/)
+lib/            # Utilities (cn helper, Prisma client)
+prisma/         # Schema and seed script
+public/         # Static assets and PWA manifest
+auth.ts         # NextAuth configuration
+```
