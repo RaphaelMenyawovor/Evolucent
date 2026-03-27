@@ -37,6 +37,10 @@ yarn-error.log*
 .env.production
 !.env.example
 
+# Generated Prisma Artifacts
+./src/generated/**/*
+
+
 
 # vercel
 .vercel
