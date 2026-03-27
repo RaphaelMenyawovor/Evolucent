@@ -38,7 +38,7 @@ yarn-error.log*
 !.env.example
 
 # Generated Prisma Artifacts
-./src/generated/**/*
+./src/generated
 
 
 
