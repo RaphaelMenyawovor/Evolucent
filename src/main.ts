@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { prisma } from './db'
 
 async function main() {
