@@ -41,6 +41,8 @@ model User {
   emailVerified DateTime?
   image         String?
   phoneNumber   String?   @unique
+  /// Ghana region for regional leaderboards (optional)
+  region        String?
   kycStatus     String    @default("UNVERIFIED")
 
   accounts      Account[]

@@ -1,21 +1,60 @@
 {
   "name": "Evolucent",
   "short_name": "Evolucent",
-  "description": "A transparent evolution of civic funding",
+  "description": "A transparent evolution of how citizens fund change",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "background_color": "#0D0D0D",
+  "theme_color": "#F5A623",
+  "lang": "en",
+  "scope": "/",
+  "categories": ["finance", "social", "civic"],
   "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icons/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Evolucent Dashboard — Live Civic Fund"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Contribute",
+      "short_name": "Contribute",
+      "url": "/#contribute",
+      "description": "Make a contribution to an active project",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "The Pulse",
+      "short_name": "Pulse",
+      "url": "/#pulse",
+      "description": "Live national civic feed",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }
