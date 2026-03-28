@@ -1,13 +1,33 @@
 import { ProjectsListing } from "@/components/ProjectsListing";
+import { prisma } from "@/src/db";
 
-const STATS = [
-  { label: "Active Projects", value: "24" },
-  { label: "Completed", value: "7" },
-  { label: "Regions Covered", value: "11/16" },
-  { label: "Total Contributors", value: "14,320" },
-] as const;
+export const dynamic = "force-dynamic";
 
-export default function ProjectsPage() {
+export default async function ProjectsPage() {
+  const [activeCount, fundedCount, regionRows, contributorCount] =
+    await Promise.all([
+      prisma.project.count({ where: { status: "ACTIVE" } }),
+      prisma.project.count({ where: { status: "FUNDED" } }),
+      prisma.project.findMany({
+        select: { region: true },
+        distinct: ["region"],
+      }),
+      prisma.contribution.count({ where: { status: "SUCCESS" } }),
+    ]).catch(() => [0, 0, [], 0] as const);
+
+  const stats = [
+    { label: "Active Projects", value: activeCount.toString() },
+    { label: "Completed", value: fundedCount.toString() },
+    {
+      label: "Regions Covered",
+      value: `${(regionRows as { region: string }[]).length}/16`,
+    },
+    {
+      label: "Total Contributors",
+      value: (contributorCount as number).toLocaleString("en-GH"),
+    },
+  ] as const;
+
   return (
     <main className="min-h-screen bg-evolucent-off-white dark:bg-background">
       <div className="bg-evolucent-black py-10 pb-12 md:py-12">
@@ -29,7 +49,7 @@ export default function ProjectsPage() {
 
       <div className="bg-primary py-4">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-6 px-6 md:gap-8">
-          {STATS.map((stat) => (
+          {stats.map((stat) => (
             <div key={stat.label} className="flex items-center gap-3">
               <span className="font-display text-[22px] font-extrabold text-evolucent-black">
                 {stat.value}

@@ -1,30 +1,28 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-const LANGUAGE_PROMPTS: Record<string, string> = {
-  English:
-    "Summarize this civic project in clear, simple English that any citizen can understand. Keep it under 120 words. Be direct and factual.",
-  Twi: "Translate and summarize this civic project into Akan Twi (as spoken in Ghana). Use simple everyday Twi that ordinary Ghanaians understand. Keep it under 120 words. Start directly in Twi.",
-  Ewe: "Translate and summarize this civic project into Ewe (as spoken in the Volta Region of Ghana). Use simple conversational Ewe. Keep it under 120 words. Start directly in Ewe.",
-  Ga: "Translate and summarize this civic project into Ga (as spoken in Greater Accra, Ghana). Use simple everyday Ga. Keep it under 120 words. Start directly in Ga.",
-  Dagbani:
-    "Translate and summarize this civic project into Dagbani (as spoken in Northern Ghana). Use simple conversational Dagbani. Keep it under 120 words. Start directly in Dagbani.",
-  Fante:
-    "Translate and summarize this civic project into Fante (as spoken in the Central Region of Ghana). Use simple everyday Fante. Keep it under 120 words. Start directly in Fante.",
+/** Map display language name → GhanaNLP API language code */
+const LANG_CODES: Record<string, string> = {
+  Twi: "tw",
+  Ewe: "ee",
+  Ga: "gaa",
+  Dagbani: "dag",
+  Fante: "fat",
 };
 
-const ALLOWED = new Set(Object.keys(LANGUAGE_PROMPTS));
+const ALLOWED = new Set(["English", ...Object.keys(LANG_CODES)]);
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GHANANLP_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "Translation service is not configured.", text: "" },
+      { error: "Translation service not configured.", text: "" },
       { status: 503 }
     );
   }
 
   let body: {
+    /** Raw text (used by KhayaAIPlayer — overrides project fields) */
+    text?: string;
     projectTitle?: string;
     projectDescription?: string;
     projectRegion?: string;
@@ -40,6 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const {
+    text: rawText,
     projectTitle = "",
     projectDescription = "",
     projectRegion = "",
@@ -52,34 +51,60 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unsupported language", text: "" }, { status: 400 });
   }
 
-  const projectContext = `
-Project: ${projectTitle}
-Region: ${projectRegion}
-Description: ${projectDescription}
-Funding: GHS ${amountRaised} raised of GHS ${targetAmount} target
-`;
+  // Build source text — prefer explicit `text`, otherwise compose from project fields
+  const sourceText = (
+    rawText ??
+    [
+      projectTitle,
+      projectRegion ? `Located in ${projectRegion}.` : "",
+      projectDescription,
+      amountRaised > 0
+        ? `GHS ${amountRaised.toLocaleString()} raised of GHS ${targetAmount.toLocaleString()} target.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ")
+  )
+    .trim()
+    .slice(0, 800); // GhanaNLP character limit
 
-  const prompt = LANGUAGE_PROMPTS[language];
-  const model =
-    process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+  // English — return the source text as-is, no API call needed
+  if (language === "English") {
+    return NextResponse.json({ text: sourceText, language, langCode: "en" });
+  }
+
+  const langCode = LANG_CODES[language];
 
   try {
-    const client = new Anthropic({ apiKey });
-    const message = await client.messages.create({
-      model,
-      max_tokens: 300,
-      messages: [
-        {
-          role: "user",
-          content: `${prompt}\n\nProject details:\n${projectContext}`,
-        },
-      ],
+    const res = await fetch("https://translation-api.ghananlp.org/v1/translate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Ocp-Apim-Subscription-Key": apiKey,
+      },
+      body: JSON.stringify({ in: "en", out: langCode, text: sourceText }),
+      cache: "no-store",
     });
 
-    const block = message.content[0];
-    const text = block?.type === "text" ? block.text : "";
+    if (!res.ok) {
+      throw new Error(`GhanaNLP translate HTTP ${res.status}`);
+    }
 
-    return NextResponse.json({ text, language });
+    // GhanaNLP returns plain translated text
+    const raw = await res.text();
+    let translatedText: string;
+    try {
+      // Handle in case the API wraps the result in JSON
+      const json = JSON.parse(raw) as Record<string, unknown>;
+      translatedText =
+        (json.translatedText as string) ??
+        (json.text as string) ??
+        raw;
+    } catch {
+      translatedText = raw;
+    }
+
+    return NextResponse.json({ text: translatedText.trim(), language, langCode });
   } catch (e) {
     console.error("[translate-project]", e);
     return NextResponse.json(

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 
+/** Valid GhanaNLP TTS language codes */
+const TTS_LANGS = new Set(["tw", "ee", "gaa", "dag", "fat"])
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GHANANLP_API_KEY
   if (!apiKey) {
@@ -12,12 +15,20 @@ export async function POST(req: NextRequest) {
   }
 
   let text: string
+  let language: string
   try {
     const body = await req.json()
     text = body.text
+    language = body.language ?? "tw"
     if (typeof text !== "string" || text.trim().length === 0) {
       return NextResponse.json(
         { error: "text is required and must be a non-empty string" },
+        { status: 400 }
+      )
+    }
+    if (!TTS_LANGS.has(language)) {
+      return NextResponse.json(
+        { error: `Unsupported TTS language: ${language}. Supported: ${[...TTS_LANGS].join(", ")}` },
         { status: 400 }
       )
     }
@@ -39,7 +50,7 @@ export async function POST(req: NextRequest) {
           "Cache-Control": "no-cache",
           "Ocp-Apim-Subscription-Key": apiKey,
         },
-        body: JSON.stringify({ text: safeText, language: "tw" }),
+        body: JSON.stringify({ text: safeText, language }),
       }
     )
   } catch {

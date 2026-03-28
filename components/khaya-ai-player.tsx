@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Volume2, VolumeX, Loader2 } from "lucide-react"
 
 interface KhayaAIPlayerProps {
@@ -11,14 +11,18 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
 
   async function handlePlay() {
-    if (isPlaying && audio) {
-      audio.pause()
-      audio.currentTime = 0
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current)
+        blobUrlRef.current = null
+      }
       setIsPlaying(false)
-      setAudio(null)
       return
     }
 
@@ -26,37 +30,56 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
     setIsLoading(true)
 
     try {
-      const res = await fetch("/api/tts", {
+      // Step 1: Translate English text → Twi via GhanaNLP
+      const translateRes = await fetch("/api/translate-project", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, language: "Twi" }),
       })
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
+      if (!translateRes.ok) {
+        const data = await translateRes.json().catch(() => ({})) as { error?: string }
+        throw new Error(data.error ?? "Translation failed")
+      }
+
+      const { text: twiText } = await translateRes.json() as { text: string }
+
+      // Step 2: Synthesize Twi text via Khaya TTS
+      const ttsRes = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: twiText, language: "tw" }),
+      })
+
+      if (!ttsRes.ok) {
+        const data = await ttsRes.json().catch(() => ({})) as { error?: string }
         throw new Error(data.error ?? "Could not generate audio. Please try again.")
       }
 
-      const blob = await res.blob()
+      const blob = await ttsRes.blob()
       const url = URL.createObjectURL(blob)
-      const newAudio = new Audio(url)
+      blobUrlRef.current = url
 
-      newAudio.addEventListener("ended", () => {
+      const audio = new Audio(url)
+      audioRef.current = audio
+
+      audio.addEventListener("ended", () => {
         setIsPlaying(false)
-        setAudio(null)
+        audioRef.current = null
         URL.revokeObjectURL(url)
+        blobUrlRef.current = null
       })
 
-      newAudio.addEventListener("error", () => {
+      audio.addEventListener("error", () => {
         setIsPlaying(false)
-        setAudio(null)
+        audioRef.current = null
         setError("Audio playback failed.")
         URL.revokeObjectURL(url)
+        blobUrlRef.current = null
       })
 
-      setAudio(newAudio)
       setIsPlaying(true)
-      await newAudio.play()
+      await audio.play()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Playback failed. Please try again.")
       setIsPlaying(false)

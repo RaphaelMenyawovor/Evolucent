@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const LANGUAGES = [
@@ -11,15 +11,6 @@ const LANGUAGES = [
   { code: "Dagbani" as const, label: "Dagbani", flag: "🇬🇭" },
   { code: "Fante" as const, label: "Fante", flag: "🇬🇭" },
 ];
-
-const SPEECH_LANG: Record<string, string> = {
-  English: "en-GH",
-  Twi: "ak-GH",
-  Ewe: "ee-GH",
-  Ga: "gaa-GH",
-  Dagbani: "dag-GH",
-  Fante: "fat-GH",
-};
 
 type Props = {
   projectTitle: string;
@@ -41,29 +32,34 @@ export function ProjectLanguageReader({
   const [selectedLang, setSelectedLang] = useState<string | null>(null);
   const [state, setState] = useState<State>("idle");
   const [translatedText, setTranslatedText] = useState("");
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
 
-  const stop = useCallback(() => {
-    window.speechSynthesis.cancel();
-    setState((s) => (s === "playing" ? "done" : s));
-  }, []);
+  function stopAudio() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+    if (typeof window !== "undefined") {
+      window.speechSynthesis?.cancel();
+    }
+  }
 
-  const pickVoice = useCallback((langCode: string) => {
-    const voices = window.speechSynthesis.getVoices();
-    const want = SPEECH_LANG[langCode] ?? "en-GH";
-    const byLang = voices.find((v) => v.lang.toLowerCase().startsWith(want.slice(0, 2)));
-    const enGh = voices.find((v) => v.lang.toLowerCase().startsWith("en"));
-    return byLang ?? enGh ?? voices[0] ?? null;
-  }, []);
+  useEffect(() => () => stopAudio(), []);
 
   const handleLanguageSelect = async (lang: string) => {
-    window.speechSynthesis.cancel();
+    stopAudio();
     setSelectedLang(lang);
     setState("loading");
     setTranslatedText("");
 
     try {
-      const res = await fetch("/api/translate-project", {
+      // Step 1: Translate via GhanaNLP (English returns original text unchanged)
+      const translateRes = await fetch("/api/translate-project", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -76,50 +72,73 @@ export function ProjectLanguageReader({
         }),
       });
 
-      const data = (await res.json()) as { text?: string; error?: string };
+      const translateData = (await translateRes.json()) as {
+        text?: string;
+        langCode?: string;
+        error?: string;
+      };
 
-      if (!res.ok || data.error) {
+      if (!translateRes.ok || !translateData.text) {
         setState("error");
         return;
       }
 
-      const text = data.text ?? "";
+      const text = translateData.text;
+      const langCode = translateData.langCode;
       setTranslatedText(text);
-      setState("playing");
 
-      const doSpeak = () => {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.92;
-        utterance.pitch = 1;
-        utterance.volume = 1;
-        utterance.lang = SPEECH_LANG[lang] ?? "en-GH";
-        const voice = pickVoice(lang);
-        if (voice) utterance.voice = voice;
-        utterance.onend = () => setState("done");
-        utterance.onerror = () => setState("error");
-        utteranceRef.current = utterance;
-        window.speechSynthesis.speak(utterance);
-      };
-
-      doSpeak();
-      if (window.speechSynthesis.getVoices().length === 0) {
-        window.speechSynthesis.addEventListener(
-          "voiceschanged",
-          () => doSpeak(),
-          { once: true }
-        );
+      // Step 2: Synthesize — Khaya TTS for Ghanaian languages, browser for English
+      if (lang === "English" || !langCode || langCode === "en") {
+        if (typeof window !== "undefined" && window.speechSynthesis) {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = "en-GH";
+          utterance.rate = 0.92;
+          utterance.onend = () => setState("done");
+          utterance.onerror = () => setState("done");
+          window.speechSynthesis.speak(utterance);
+        }
+        setState("playing");
+        return;
       }
+
+      const ttsRes = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, language: langCode }),
+      });
+
+      if (!ttsRes.ok) {
+        // TTS failure is non-fatal — translated text is already visible
+        setState("done");
+        return;
+      }
+
+      const blob = await ttsRes.blob();
+      const url = URL.createObjectURL(blob);
+      blobUrlRef.current = url;
+
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      const cleanup = () => {
+        URL.revokeObjectURL(url);
+        blobUrlRef.current = null;
+        audioRef.current = null;
+      };
+      audio.addEventListener("ended", () => { setState("done"); cleanup(); });
+      audio.addEventListener("error", () => { setState("done"); cleanup(); });
+
+      setState("playing");
+      await audio.play();
     } catch {
       setState("error");
     }
   };
 
-  useEffect(() => {
-    return () => {
-      window.speechSynthesis.cancel();
-    };
-  }, []);
+  const handleStop = () => {
+    stopAudio();
+    setState("done");
+  };
 
   return (
     <div className="mb-6 rounded-[var(--radius-lg)] border-[1.5px] border-border bg-evolucent-off-white p-5 dark:bg-card md:px-6">
@@ -191,7 +210,7 @@ export function ProjectLanguageReader({
                 <p className="mb-1.5 m-0 font-sans text-[13px] font-medium text-civic-green-dark dark:text-civic-green-light">
                   {state === "playing"
                     ? `▶ Playing in ${selectedLang}…`
-                    : `✓ ${selectedLang} summary`}
+                    : `✓ ${selectedLang} translation`}
                 </p>
                 <p className="m-0 font-sans text-sm leading-relaxed text-foreground">
                   {translatedText}
@@ -208,7 +227,7 @@ export function ProjectLanguageReader({
           {state === "playing" ? (
             <button
               type="button"
-              onClick={stop}
+              onClick={handleStop}
               className="shrink-0 rounded-full border-[1.5px] border-civic-green bg-card px-3.5 py-1.5 font-sans text-xs font-semibold text-civic-green hover:bg-muted"
             >
               ■ Stop
@@ -218,8 +237,7 @@ export function ProjectLanguageReader({
       ) : null}
 
       <p className="mt-3 font-sans text-[11px] leading-snug text-muted-foreground">
-        AI-assisted translation. Community corrections welcome. Voices vary by
-        device — we use the best match available in your browser.
+        Powered by Khaya AI · GhanaNLP. Native Ghanaian language voices.
       </p>
     </div>
   );

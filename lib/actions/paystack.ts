@@ -11,7 +11,15 @@ type PaystackVerifyResponse = {
     status: string      // "success" | "failed" | "abandoned"
     reference: string
     amount: number      // in pesewas — divide by 100 for GHS
+    channel: string     // "card" | "bank" | "mobile_money" | "ussd" | "qr" etc.
   }
+}
+
+/** Normalise Paystack channel names to the app's three display values. */
+function normaliseChannel(channel: string): "card" | "bank" | "momo" {
+  if (channel === "mobile_money") return "momo"
+  if (channel === "bank") return "bank"
+  return "card"
 }
 
 export async function verifyPayment(reference: string, projectId: string) {
@@ -60,8 +68,21 @@ export async function verifyPayment(reference: string, projectId: string) {
     )
   }
 
+  // Ensure the project exists before writing to avoid FK constraint errors.
+  // Run `npx prisma db seed` if this throws — projects must be seeded first.
+  const projectExists = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true },
+  })
+  if (!projectExists) {
+    throw new Error(
+      "Project not found in database. Please contact support — reference: " + reference
+    )
+  }
+
   // Paystack amounts are in pesewas (1 GHS = 100 pesewas)
   const amountGHS = body.data.amount / 100
+  const method = normaliseChannel(body.data.channel ?? "")
 
   // Atomic write with race-condition guard inside the transaction
   await prisma.$transaction(async (tx) => {
@@ -75,6 +96,7 @@ export async function verifyPayment(reference: string, projectId: string) {
         amount: amountGHS,
         paymentRef: reference,
         status: "SUCCESS",
+        method,
         projectId,
         userId: session.user.id,
       },
@@ -87,6 +109,7 @@ export async function verifyPayment(reference: string, projectId: string) {
   })
 
   revalidatePath("/ledger")
+  revalidatePath(`/project/${projectId}`)
   revalidatePath(`/projects/${projectId}`)
 
   return { projectId, amount: amountGHS }
