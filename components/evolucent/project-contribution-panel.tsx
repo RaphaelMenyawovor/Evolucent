@@ -75,42 +75,43 @@ export function ProjectContributionPanel({
         return;
       }
       
-      const handler = PaystackPop.setup({
+      const paystack = new PaystackPop();
+      paystack.newTransaction({
         key: publicKey,
         email: resolvedEmail,
         amount: Math.round(numericAmount * 100), // pesewas
         currency: "GHS",
         metadata: { project_id: projectId },
-        callback: async (txn: any) => {
+        onSuccess: (txn: any) => {
           toast.loading("Verifying payment…", { id: "payment-verify" });
-          try {
-            await verifyPayment(txn.reference, projectId);
-            toast.success("Contribution confirmed! Thank you.", {
-              id: "payment-verify",
-            });
-            setAmount("");
-            router.refresh();
-          } catch (err) {
-            const msg =
-              err instanceof Error ? err.message : "Verification failed";
-            // Surface a friendlier message for the unauthenticated case
-            toast.error(
-              msg.includes("Unauthenticated")
-                ? "Sign in first to record your contribution."
-                : msg,
-              { id: "payment-verify" }
-            );
-          } finally {
-            setIsProcessing(false);
-          }
+          (async () => {
+            try {
+              await verifyPayment(txn.reference, projectId);
+              toast.success("Contribution confirmed! Thank you.", {
+                id: "payment-verify",
+              });
+              setAmount("");
+              router.refresh();
+            } catch (err) {
+              const msg =
+                err instanceof Error ? err.message : "Verification failed";
+              toast.error(
+                msg.includes("Unauthenticated")
+                  ? "Sign in first to record your contribution."
+                  : msg,
+                { id: "payment-verify" }
+              );
+            } finally {
+              setIsProcessing(false);
+            }
+          })();
         },
-        onClose: () => {
+        onCancel: () => {
           setIsProcessing(false);
           toast.info("Payment cancelled.");
         },
       });
 
-      handler.openIframe();
     } catch (e) {
       console.error(e);
       setIsProcessing(false);
@@ -119,7 +120,7 @@ export function ProjectContributionPanel({
 
   return (
     <>
-      <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
+      <Script src="https://js.paystack.co/v2/inline.js" strategy="afterInteractive" />
       <Card className="shadow-evolucent-elevated ring-1 ring-border/60">
         <CardHeader>
           <CardDescription className="font-mono text-xs uppercase tracking-widest">
