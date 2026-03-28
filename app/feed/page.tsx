@@ -20,8 +20,9 @@ const getCachedFeed = unstable_cache(
 );
 
 export default async function FeedPage() {
-  const { posts, fetchedAt, source, error, feedsLoaded } =
+  const { posts, fetchedAt: rawFetchedAt, source, error, feedsLoaded } =
     await getCachedFeed();
+  const fetchedAt = new Date(rawFetchedAt);
 
   return (
     <div className="min-h-screen bg-evolucent-off-white">

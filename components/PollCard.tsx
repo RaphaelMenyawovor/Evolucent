@@ -1,6 +1,7 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
+import { CheckCircle, Users, MapPin, ThumbsUp } from "lucide-react";
 import type { PollProposal } from "@/lib/poll-proposals";
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -21,7 +22,16 @@ type Props = {
 export function PollCard({ proposal, userVote, onVote }: Props) {
   const { data: session, status } = useSession();
   const voted = userVote !== null;
-  const yesPct = Math.round((proposal.yesVotes / proposal.totalVotes) * 100);
+
+  const displayTotal = voted
+    ? proposal.totalVotes + 1
+    : proposal.totalVotes;
+  const displayYes = voted && userVote === "yes"
+    ? proposal.yesVotes + 1
+    : proposal.yesVotes;
+  const yesPct = Math.round((displayYes / displayTotal) * 100);
+  const noPct = 100 - yesPct;
+
   const catStyle =
     CATEGORY_COLORS[proposal.category] ?? {
       bg: "bg-evolucent-sand",
@@ -81,8 +91,7 @@ export function PollCard({ proposal, userVote, onVote }: Props) {
           {proposal.region}
         </span>
         <span className="ml-auto text-[11px] text-muted-foreground">
-          {proposal.totalVotes.toLocaleString()} votes · {proposal.daysLeft}d
-          left
+          {displayTotal.toLocaleString()} votes · {proposal.daysLeft}d left
         </span>
       </div>
 
@@ -112,16 +121,61 @@ export function PollCard({ proposal, userVote, onVote }: Props) {
       </div>
 
       {voted && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-lg bg-evolucent-off-white px-3.5 py-2.5">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-evolucent-sand">
-            <div
-              className="h-full rounded-full bg-civic-green"
-              style={{ width: `${yesPct}%` }}
-            />
+        <div className="mb-4 space-y-3">
+          <div className="rounded-xl bg-evolucent-off-white p-4">
+            <div className="mb-2.5 flex items-center justify-between">
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                Vote results
+              </span>
+              <span className="font-mono text-xs font-semibold text-evolucent-black">
+                {displayTotal.toLocaleString()} total votes
+              </span>
+            </div>
+
+            <div className="mb-2 flex h-3 overflow-hidden rounded-full">
+              <div
+                className="rounded-l-full bg-civic-green transition-all duration-500"
+                style={{ width: `${yesPct}%` }}
+              />
+              <div
+                className="rounded-r-full bg-muted-foreground/25 transition-all duration-500"
+                style={{ width: `${noPct}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-civic-green-dark">
+                ✓ {yesPct}% YES ({displayYes.toLocaleString()})
+              </span>
+              <span className="text-muted-foreground">
+                ✗ {noPct}% NO ({(displayTotal - displayYes).toLocaleString()})
+              </span>
+            </div>
           </div>
-          <span className="shrink-0 font-mono text-xs font-semibold text-civic-green-dark">
-            {yesPct}% YES · {proposal.totalVotes.toLocaleString()} votes
-          </span>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col items-center rounded-lg border border-evolucent-sand bg-card px-2 py-2.5">
+              <Users className="mb-1 size-4 text-muted-foreground" />
+              <span className="font-mono text-sm font-bold text-evolucent-black">
+                {displayTotal.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-muted-foreground">Total voters</span>
+            </div>
+            <div className="flex flex-col items-center rounded-lg border border-evolucent-sand bg-card px-2 py-2.5">
+              <MapPin className="mb-1 size-4 text-muted-foreground" />
+              <span className="font-mono text-sm font-bold text-evolucent-black">
+                {proposal.region}
+              </span>
+              <span className="text-[10px] text-muted-foreground">Region</span>
+            </div>
+            <div className="flex flex-col items-center rounded-lg border border-evolucent-sand bg-card px-2 py-2.5">
+              <ThumbsUp className="mb-1 size-4 text-civic-green" />
+              <span className="font-mono text-sm font-bold text-civic-green-dark">
+                {displayYes.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-muted-foreground">Backed it</span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -152,15 +206,16 @@ export function PollCard({ proposal, userVote, onVote }: Props) {
         </div>
       ) : (
         <div
-          className={`rounded-[10px] px-3 py-3 text-center text-sm font-semibold ${
+          className={`flex items-center justify-center gap-2 rounded-[10px] px-3 py-3 text-sm font-semibold ${
             userVote === "yes"
               ? "bg-civic-green-light text-civic-green-dark"
               : "bg-evolucent-off-white text-muted-foreground"
           }`}
         >
+          <CheckCircle className="size-4" />
           {userVote === "yes"
-            ? "✓ You voted YES — your voice is counted"
-            : "✗ You passed on this project"}
+            ? "You voted YES — your voice is counted"
+            : "You passed on this project"}
         </div>
       )}
     </div>

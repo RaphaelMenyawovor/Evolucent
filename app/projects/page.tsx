@@ -1,13 +1,41 @@
+import { prisma } from "@/src/db";
 import { ProjectsListing } from "@/components/ProjectsListing";
 
-const STATS = [
-  { label: "Active Projects", value: "24" },
-  { label: "Completed", value: "7" },
-  { label: "Regions Covered", value: "11/16" },
-  { label: "Total Contributors", value: "14,320" },
-] as const;
+export const dynamic = "force-dynamic";
 
-export default function ProjectsPage() {
+export default async function ProjectsPage() {
+  const [dbProjects, contributorCount, projectCounts] = await Promise.all([
+    prisma.project.findMany({
+      select: { id: true, currentAmount: true, region: true },
+    }),
+    prisma.contribution.groupBy({
+      by: ["userId"],
+      where: { status: "SUCCESS" },
+    }),
+    prisma.project.groupBy({
+      by: ["status"],
+      _count: { id: true },
+    }),
+  ]);
+
+  const progressMap: Record<string, number> = {};
+  for (const p of dbProjects) {
+    progressMap[p.id] = p.currentAmount;
+  }
+
+  const uniqueRegions = new Set(dbProjects.map((p) => p.region));
+  const activeCount =
+    projectCounts.find((g) => g.status === "ACTIVE")?._count.id ?? 0;
+  const totalProjects = projectCounts.reduce((sum, g) => sum + g._count.id, 0);
+  const completedCount = totalProjects - activeCount;
+
+  const stats = [
+    { label: "Active Projects", value: String(activeCount || dbProjects.length) },
+    { label: "Completed", value: String(completedCount) },
+    { label: "Regions Covered", value: `${uniqueRegions.size}/16` },
+    { label: "Total Contributors", value: contributorCount.length.toLocaleString() },
+  ];
+
   return (
     <main className="min-h-screen bg-evolucent-off-white dark:bg-background">
       <div className="bg-evolucent-black py-10 pb-12 md:py-12">
@@ -29,7 +57,7 @@ export default function ProjectsPage() {
 
       <div className="bg-primary py-4">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-6 px-6 md:gap-8">
-          {STATS.map((stat) => (
+          {stats.map((stat) => (
             <div key={stat.label} className="flex items-center gap-3">
               <span className="font-display text-[22px] font-extrabold text-evolucent-black">
                 {stat.value}
@@ -43,7 +71,7 @@ export default function ProjectsPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-10">
-        <ProjectsListing />
+        <ProjectsListing progressMap={progressMap} />
       </div>
     </main>
   );

@@ -13,7 +13,8 @@ type ClientRelativeTimeProps = {
  * Renders relative time only after mount so SSR and hydration output match.
  * Placeholder is identical on server and client until `useEffect` runs.
  */
-export function ClientRelativeTime({ date, className }: ClientRelativeTimeProps) {
+export function ClientRelativeTime({ date: rawDate, className }: ClientRelativeTimeProps) {
+  const date = rawDate instanceof Date ? rawDate : new Date(rawDate);
   const [label, setLabel] = React.useState("—");
 
   React.useEffect(() => {

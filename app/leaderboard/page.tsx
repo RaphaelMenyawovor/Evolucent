@@ -133,6 +133,8 @@ export default async function LeaderboardPage({
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {row.region ? `${row.region}` : "Region not set"}
+                      {" · "}
+                      {row.contributionCount} contribution{row.contributionCount === 1 ? "" : "s"}
                     </p>
                   </div>
                   <span className="shrink-0 font-mono text-sm font-bold text-civic-green-dark sm:text-base">
@@ -222,6 +224,9 @@ export default async function LeaderboardPage({
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-evolucent-black">
                         {contributorLabel(row)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {row.contributionCount} contribution{row.contributionCount === 1 ? "" : "s"}
                       </p>
                     </div>
                     <span className="shrink-0 font-mono text-sm font-bold text-civic-green-dark sm:text-base">

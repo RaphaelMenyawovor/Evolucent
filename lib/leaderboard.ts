@@ -8,6 +8,7 @@ export type ContributorRow = {
   image: string | null;
   region: string | null;
   totalGhs: number;
+  contributionCount: number;
 };
 
 export type RegionGivingRow = {
@@ -23,7 +24,9 @@ export async function getNationalContributors(
 ): Promise<ContributorRow[]> {
   const grouped = await prisma.contribution.groupBy({
     by: ["userId"],
+    where: { status: "SUCCESS" },
     _sum: { amount: true },
+    _count: { id: true },
     orderBy: { _sum: { amount: "desc" } },
     take: limit,
   });
@@ -52,6 +55,7 @@ export async function getNationalContributors(
       image: u?.image ?? null,
       region: u?.region ?? null,
       totalGhs: g._sum.amount ?? 0,
+      contributionCount: g._count.id,
     };
   });
 }
@@ -70,8 +74,9 @@ export async function getRegionalContributors(
 
   const grouped = await prisma.contribution.groupBy({
     by: ["userId"],
-    where: { userId: { in: ids } },
+    where: { userId: { in: ids }, status: "SUCCESS" },
     _sum: { amount: true },
+    _count: { id: true },
     orderBy: { _sum: { amount: "desc" } },
     take: limit,
   });
@@ -100,6 +105,7 @@ export async function getRegionalContributors(
       image: u?.image ?? null,
       region: u?.region ?? null,
       totalGhs: g._sum.amount ?? 0,
+      contributionCount: g._count.id,
     };
   });
 }
@@ -110,6 +116,7 @@ export async function getRegionsByGiving(
 ): Promise<RegionGivingRow[]> {
   const grouped = await prisma.contribution.groupBy({
     by: ["projectId"],
+    where: { status: "SUCCESS" },
     _sum: { amount: true },
     _count: { id: true },
   });

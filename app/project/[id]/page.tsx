@@ -12,8 +12,11 @@ import {
 import { FundingProgress } from "@/components/evolucent/funding-progress";
 import { ProjectLanguageReader } from "@/components/ProjectLanguageReader";
 import { ProjectContributionPanel } from "@/components/evolucent/project-contribution-panel";
+import { ContributionImpact } from "@/components/evolucent/contribution-impact";
 import { formatGHS, formatRegion, formatTimestamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { auth } from "@/auth";
+import { prisma } from "@/src/db";
 
 type VerificationStep = {
   id: string;
@@ -107,9 +110,24 @@ function getProject(id: string) {
 
 type PageProps = { params: Promise<{ id: string }> };
 
+export const dynamic = "force-dynamic";
+
 export default async function ProjectDetailPage({ params }: PageProps) {
   const { id } = await params;
   const p = getProject(id);
+  const session = await auth();
+
+  const dbProject = await prisma.project.findUnique({
+    where: { id },
+    select: { currentAmount: true },
+  });
+  const liveRaised = dbProject?.currentAmount ?? p.raised;
+
+  const contributions = await prisma.contribution.findMany({
+    where: { projectId: id, status: "SUCCESS" },
+    include: { user: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
     <div className="min-h-screen bg-background pb-28 md:pb-12">
@@ -161,7 +179,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             projectTitle={p.title}
             projectDescription={`${p.aiSummary}\n\n${p.description}`}
             projectRegion={formatRegion(p.region)}
-            amountRaised={p.raised}
+            amountRaised={liveRaised}
             targetAmount={p.target}
           />
 
@@ -183,6 +201,15 @@ export default async function ProjectDetailPage({ params }: PageProps) {
               <p className="text-muted-foreground">{p.description}</p>
             </CardContent>
           </Card>
+
+          <div className="mt-8">
+            <ContributionImpact
+              projectTitle={p.title}
+              projectDescription={p.description}
+              goalAmount={p.target}
+              currentAmount={liveRaised}
+            />
+          </div>
 
           <div className="mt-6">
             <div className="mb-2 flex items-center justify-between">
@@ -232,35 +259,47 @@ export default async function ProjectDetailPage({ params }: PageProps) {
             <p className="mt-1 text-sm text-muted-foreground">
               Every pesewa is visible — this is the core trust mechanism.
             </p>
-            <ul className="mt-4 space-y-3">
-              {p.ledger.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-md)] border border-border/80 bg-card px-3 py-2 text-sm shadow-evolucent-card"
-                >
-                  <span className="font-mono text-xs text-muted-foreground">{row.id}</span>
-                  <span className="font-mono font-semibold text-foreground">
-                    {formatGHS(row.amount)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {row.alias} · {formatRegion(row.region)} · {row.method.toUpperCase()}
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {formatTimestamp(row.at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {contributions.length === 0 ? (
+              <p className="mt-4 rounded-[var(--radius-md)] border border-border/80 bg-card px-3 py-4 text-center text-sm text-muted-foreground shadow-evolucent-card">
+                No contributions yet. Be the first to fund this change!
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {contributions.map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-md)] border border-border/80 bg-card px-3 py-2 text-sm shadow-evolucent-card"
+                  >
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {c.paymentRef.length > 20
+                        ? `${c.paymentRef.slice(0, 8)}…${c.paymentRef.slice(-6)}`
+                        : c.paymentRef}
+                    </span>
+                    <span className="font-mono font-semibold text-foreground">
+                      {formatGHS(c.amount)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {c.user.name ?? "Anonymous Citizen"}
+                    </span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatTimestamp(c.createdAt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
 
         <div className="lg:col-span-5">
           <div className="space-y-6 lg:sticky lg:top-20">
             <ProjectContributionPanel
-              raised={p.raised}
+              projectId={id}
+              raised={liveRaised}
               target={p.target}
               supporters={p.supporters}
               daysLeft={p.daysLeft}
+              userEmail={session?.user?.email}
             />
           </div>
         </div>

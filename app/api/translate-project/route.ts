@@ -1,26 +1,59 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-const LANGUAGE_PROMPTS: Record<string, string> = {
-  English:
-    "Summarize this civic project in clear, simple English that any citizen can understand. Keep it under 120 words. Be direct and factual.",
-  Twi: "Translate and summarize this civic project into Akan Twi (as spoken in Ghana). Use simple everyday Twi that ordinary Ghanaians understand. Keep it under 120 words. Start directly in Twi.",
-  Ewe: "Translate and summarize this civic project into Ewe (as spoken in the Volta Region of Ghana). Use simple conversational Ewe. Keep it under 120 words. Start directly in Ewe.",
-  Ga: "Translate and summarize this civic project into Ga (as spoken in Greater Accra, Ghana). Use simple everyday Ga. Keep it under 120 words. Start directly in Ga.",
-  Dagbani:
-    "Translate and summarize this civic project into Dagbani (as spoken in Northern Ghana). Use simple conversational Dagbani. Keep it under 120 words. Start directly in Dagbani.",
-  Fante:
-    "Translate and summarize this civic project into Fante (as spoken in the Central Region of Ghana). Use simple everyday Fante. Keep it under 120 words. Start directly in Fante.",
+const TRANSLATION_URL = "https://translation-api.ghananlp.org/v1/translate";
+
+const LANG_PAIRS: Record<string, string> = {
+  English: "",
+  Twi: "en-tw",
+  Ewe: "en-ee",
+  Ga: "en-gaa",
+  Dagbani: "en-dag",
+  Fante: "en-fat",
 };
 
-const ALLOWED = new Set(Object.keys(LANGUAGE_PROMPTS));
+const ALLOWED = new Set(Object.keys(LANG_PAIRS));
+
+function getApiKeys() {
+  const primary = process.env.GHANANLP_API_KEY;
+  const secondary = process.env.GHANANLP_API_KEY_SECONDARY;
+  if (!primary && !secondary) return null;
+  return [primary, secondary].filter(Boolean) as string[];
+}
+
+async function translateWithFallback(
+  text: string,
+  langPair: string,
+  keys: string[],
+): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (const key of keys) {
+    const res = await fetch(TRANSLATION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+        "Ocp-Apim-Subscription-Key": key,
+      },
+      body: JSON.stringify({ in: text, lang: langPair }),
+    });
+
+    if (res.ok) return res.text();
+    if (res.status < 500) {
+      throw new Error(`Translation API returned ${res.status}`);
+    }
+    lastError = new Error(`Translation API returned ${res.status}`);
+  }
+
+  throw lastError ?? new Error("All API keys exhausted.");
+}
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  const keys = getApiKeys();
+  if (!keys) {
     return NextResponse.json(
       { error: "Translation service is not configured.", text: "" },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -49,42 +82,37 @@ export async function POST(req: NextRequest) {
   } = body;
 
   if (!ALLOWED.has(language)) {
-    return NextResponse.json({ error: "Unsupported language", text: "" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Unsupported language", text: "" },
+      { status: 400 },
+    );
   }
 
-  const projectContext = `
-Project: ${projectTitle}
-Region: ${projectRegion}
-Description: ${projectDescription}
-Funding: GHS ${amountRaised} raised of GHS ${targetAmount} target
-`;
+  if (language === "English") {
+    const summary =
+      `${projectTitle}. ${projectRegion}. ` +
+      `${projectDescription} ` +
+      `GHS ${amountRaised.toLocaleString()} raised of GHS ${targetAmount.toLocaleString()} target.`;
+    return NextResponse.json({ text: summary, language });
+  }
 
-  const prompt = LANGUAGE_PROMPTS[language];
-  const model =
-    process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+  const langPair = LANG_PAIRS[language]!;
+  const sourceText =
+    `${projectTitle}. ${projectDescription} ` +
+    `${amountRaised.toLocaleString()} cedis raised of ${targetAmount.toLocaleString()} cedis target.`;
 
   try {
-    const client = new Anthropic({ apiKey });
-    const message = await client.messages.create({
-      model,
-      max_tokens: 300,
-      messages: [
-        {
-          role: "user",
-          content: `${prompt}\n\nProject details:\n${projectContext}`,
-        },
-      ],
-    });
-
-    const block = message.content[0];
-    const text = block?.type === "text" ? block.text : "";
-
-    return NextResponse.json({ text, language });
+    const translated = await translateWithFallback(
+      sourceText.slice(0, 1000),
+      langPair,
+      keys,
+    );
+    return NextResponse.json({ text: translated, language });
   } catch (e) {
     console.error("[translate-project]", e);
     return NextResponse.json(
       { error: "Translation failed", text: "" },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }

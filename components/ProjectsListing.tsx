@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   ALL_PROJECTS,
   filterAndSortProjects,
+  type CivicProject,
   type ProjectFilterStatus,
   type ProjectSortOption,
 } from "@/lib/projects-data";
@@ -12,7 +13,20 @@ import { ProjectsGrid } from "@/components/ProjectsGrid";
 
 const PAGE_SIZE = 6;
 
-export function ProjectsListing() {
+type Props = {
+  progressMap?: Record<string, number>;
+};
+
+export function ProjectsListing({ progressMap }: Props) {
+  const projects: CivicProject[] = React.useMemo(() => {
+    if (!progressMap) return ALL_PROJECTS;
+    return ALL_PROJECTS.map((p) => {
+      const liveAmount = progressMap[p.id];
+      if (liveAmount === undefined) return p;
+      return { ...p, raised: liveAmount };
+    });
+  }, [progressMap]);
+
   const [category, setCategory] =
     React.useState<(typeof FILTER_CATEGORIES)[number]>("All");
   const [region, setRegion] =
@@ -23,13 +37,13 @@ export function ProjectsListing() {
 
   const filtered = React.useMemo(
     () =>
-      filterAndSortProjects(ALL_PROJECTS, {
+      filterAndSortProjects(projects, {
         category,
         region,
         sort,
         status,
       }),
-    [category, region, sort, status]
+    [projects, category, region, sort, status]
   );
 
   React.useEffect(() => {
