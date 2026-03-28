@@ -25,7 +25,7 @@ export function OfflineIndicator() {
   if (!isOffline) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm shadow-lg">
         <WifiOff className="size-3.5" />
         Working Offline
