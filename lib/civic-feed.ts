@@ -291,7 +291,14 @@ ${JSON.stringify(payload)}`;
     generationConfig: { responseMimeType: "application/json" },
   });
 
-  const result = await gemini.generateContent(prompt);
+  let result;
+  try {
+    result = await gemini.generateContent(prompt);
+  } catch (err) {
+    console.warn("AI enrichment failed (falling back to standard RSS):", err instanceof Error ? err.message : err);
+    return new Map();
+  }
+  
   const text = result.response.text();
   if (!text) return new Map();
 
