@@ -1,7 +1,17 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { Volume2, VolumeX, Loader2 } from "lucide-react"
+import { Volume2, VolumeX, Loader2, ChevronDown } from "lucide-react"
+
+type LangCode = "tw" | "ee" | "gaa" | "dag" | "fat"
+
+const LANGUAGES: { code: LangCode; label: string }[] = [
+  { code: "tw", label: "Twi" },
+  { code: "ee", label: "Ewe" },
+  { code: "gaa", label: "Ga" },
+  { code: "dag", label: "Dagbani" },
+  { code: "fat", label: "Fante" },
+]
 
 interface KhayaAIPlayerProps {
   text: string
@@ -41,14 +51,14 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
       const newAudio = new Audio(cached)
       newAudio.addEventListener("ended", () => {
         setIsPlaying(false)
-        setAudio(null)
+        audioRef.current = null
       })
       newAudio.addEventListener("error", () => {
         setIsPlaying(false)
-        setAudio(null)
+        audioRef.current = null
         setError("Audio playback failed.")
       })
-      setAudio(newAudio)
+      audioRef.current = newAudio
       setIsPlaying(true)
       await newAudio.play()
       return
@@ -57,11 +67,12 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
     setIsLoading(true)
 
     try {
-      // Step 1: Translate English text → Twi via GhanaNLP
+      // Step 1: Translate English text → selected language via GhanaNLP
+      const langLabel = LANGUAGES.find((l) => l.code === language)?.label ?? language
       const translateRes = await fetch("/api/translate-project", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, language: "Twi" }),
+        body: JSON.stringify({ text, language: langLabel }),
       })
 
       if (!translateRes.ok) {
@@ -69,13 +80,13 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
         throw new Error(data.error ?? "Translation failed")
       }
 
-      const { text: twiText } = await translateRes.json() as { text: string }
+      const { text: translatedText } = await translateRes.json() as { text: string }
 
-      // Step 2: Synthesize Twi text via Khaya TTS
+      // Step 2: Synthesize translated text via Khaya TTS
       const ttsRes = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: twiText, language: "tw" }),
+        body: JSON.stringify({ text: translatedText, language }),
       })
 
       if (!ttsRes.ok) {
@@ -114,6 +125,8 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
       setIsLoading(false)
     }
   }
+
+  const langLabel = LANGUAGES.find((l) => l.code === language)?.label ?? language
 
   return (
     <div className="flex flex-col gap-1.5">

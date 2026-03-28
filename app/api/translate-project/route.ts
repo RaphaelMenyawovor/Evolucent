@@ -90,11 +90,18 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         "Ocp-Apim-Subscription-Key": apiKey,
       },
-      body: JSON.stringify({ in: "en", out: langCode, text: sourceText }),
+      body: JSON.stringify({ in: sourceText, lang: `en-${langCode}` }),
       cache: "no-store",
     });
 
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        console.error("[translate-project] GhanaNLP Authentication failed: Invalid API Key or Subscription.");
+        return NextResponse.json(
+          { error: "Translation service authentication failed. Check API keys.", text: "" },
+          { status: res.status },
+        );
+      }
       throw new Error(`GhanaNLP translate HTTP ${res.status}`);
     }
 
@@ -114,9 +121,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ text: translatedText.trim(), language, langCode });
   } catch (e) {
-    console.error("[translate-project]", e);
+    console.error("[translate-project] Fetch error:", e instanceof Error ? e.message : e);
     return NextResponse.json(
-      { error: "Translation failed", text: "" },
+      { error: "Translation request failed.", text: "" },
       { status: 502 },
     );
   }

@@ -1,11 +1,10 @@
 import { prisma } from "@/src/db";
 import { ProjectsListing } from "@/components/ProjectsListing";
-import { prisma } from "@/src/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-  const [activeCount, fundedCount, regionRows, contributorCount] =
+  const [activeCount, fundedCount, regionRows, contributorCount, dbProjects] =
     await Promise.all([
       prisma.project.count({ where: { status: "ACTIVE" } }),
       prisma.project.count({ where: { status: "FUNDED" } }),
@@ -14,7 +13,15 @@ export default async function ProjectsPage() {
         distinct: ["region"],
       }),
       prisma.contribution.count({ where: { status: "SUCCESS" } }),
-    ]).catch(() => [0, 0, [], 0] as const);
+      prisma.project.findMany({
+        select: { id: true, currentAmount: true },
+      }),
+    ]).catch(() => [0, 0, [], 0, []] as const);
+
+  const progressMap: Record<string, number> = {};
+  dbProjects.forEach((p) => {
+    progressMap[p.id] = p.currentAmount;
+  });
 
   const stats = [
     { label: "Active Projects", value: activeCount.toString() },

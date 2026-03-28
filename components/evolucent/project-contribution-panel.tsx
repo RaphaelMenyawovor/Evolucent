@@ -27,7 +27,6 @@ type ProjectContributionPanelProps = {
   target: number;
   supporters: number;
   daysLeft: number;
-  projectId: string;
   userEmail?: string;
 };
 
@@ -37,7 +36,6 @@ export function ProjectContributionPanel({
   target,
   supporters,
   daysLeft,
-  projectId,
   userEmail,
 }: ProjectContributionPanelProps) {
   const router = useRouter();
@@ -77,15 +75,13 @@ export function ProjectContributionPanel({
         return;
       }
       
-      const popup = new PaystackPop();
-
-      popup.newTransaction({
+      const handler = PaystackPop.setup({
         key: publicKey,
         email: resolvedEmail,
         amount: Math.round(numericAmount * 100), // pesewas
         currency: "GHS",
         metadata: { project_id: projectId },
-        onSuccess: async (txn: any) => {
+        callback: async (txn: any) => {
           toast.loading("Verifying payment…", { id: "payment-verify" });
           try {
             await verifyPayment(txn.reference, projectId);
@@ -108,11 +104,13 @@ export function ProjectContributionPanel({
             setIsProcessing(false);
           }
         },
-        onCancel: () => {
+        onClose: () => {
           setIsProcessing(false);
           toast.info("Payment cancelled.");
         },
       });
+
+      handler.openIframe();
     } catch (e) {
       console.error(e);
       setIsProcessing(false);
@@ -121,7 +119,7 @@ export function ProjectContributionPanel({
 
   return (
     <>
-      <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
+      <Script src="https://js.paystack.co/v1/inline.js" strategy="afterInteractive" />
       <Card className="shadow-evolucent-elevated ring-1 ring-border/60">
         <CardHeader>
           <CardDescription className="font-mono text-xs uppercase tracking-widest">
@@ -202,7 +200,7 @@ export function ProjectContributionPanel({
         </div>
 
         {/* Judge / Demo Mode toggle */}
-        <div className="flex items-center justify-between rounded-md border border-dashed border-amber-400/50 bg-amber-50/50 px-3 py-2 dark:bg-amber-950/20">
+        {/* <div className="flex items-center justify-between rounded-md border border-dashed border-amber-400/50 bg-amber-50/50 px-3 py-2 dark:bg-amber-950/20">
           <div className="min-w-0">
             <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
               Judge / Demo Mode
@@ -228,7 +226,7 @@ export function ProjectContributionPanel({
               }`}
             />
           </button>
-        </div>
+        </div> */}
 
         <TrustStrip />
         <p className="text-center text-xs text-muted-foreground">
