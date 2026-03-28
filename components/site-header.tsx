@@ -17,6 +17,12 @@ export async function SiteHeader() {
           Evolucent
         </Link>
         <nav className="flex items-center gap-3">
+          <Link
+            href="/ledger"
+            className="text-sm text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+          >
+            Ledger
+          </Link>
           {session?.user ? (
             <div className="flex items-center gap-3">
               {session.user.image ? (
