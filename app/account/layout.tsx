@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { getSessionSafe } from "@/lib/auth-session";
 import { cn } from "@/lib/utils";
 
 const subNav = [
@@ -13,7 +13,7 @@ export default async function AccountLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const session = await getSessionSafe();
   if (!session?.user?.id) {
     redirect(
       `/api/auth/signin?callbackUrl=${encodeURIComponent("/account")}`,

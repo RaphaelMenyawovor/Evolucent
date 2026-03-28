@@ -1,9 +1,9 @@
-import { auth } from "@/auth";
+import { getSessionSafe } from "@/lib/auth-session";
 import { ProfileForm } from "@/app/account/profile/profile-form";
 import { prisma } from "@/src/db";
 
 export default async function AccountProfilePage() {
-  const session = await auth();
+  const session = await getSessionSafe();
   if (!session?.user?.id) return null;
 
   const user = await prisma.user.findUnique({

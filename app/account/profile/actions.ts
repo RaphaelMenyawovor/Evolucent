@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
+import { getSessionSafe } from "@/lib/auth-session";
 import { GHANA_REGIONS } from "@/lib/ghana-regions";
 import { prisma } from "@/src/db";
 
@@ -23,9 +23,12 @@ export async function updateProfile(
   _prev: ProfileActionState,
   formData: FormData,
 ): Promise<ProfileActionState> {
-  const session = await auth();
+  const session = await getSessionSafe();
   if (!session?.user?.id) {
-    return { error: "You need to be signed in to update your profile." };
+    return {
+      error:
+        "You need to be signed in to update your profile. If the database is unreachable, fix DATABASE_URL and run migrations.",
+    };
   }
 
   const nameRaw = (formData.get("name") as string) ?? "";

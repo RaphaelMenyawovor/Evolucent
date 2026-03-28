@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { auth } from "@/auth";
+import { getSessionSafe } from "@/lib/auth-session";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import {
   Card,
@@ -12,7 +12,7 @@ import {
 import { prisma } from "@/src/db";
 
 export default async function AccountOverviewPage() {
-  const session = await auth();
+  const session = await getSessionSafe();
   if (!session?.user?.id) return null;
 
   const user = await prisma.user.findUnique({

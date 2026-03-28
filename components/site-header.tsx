@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { auth } from "@/auth";
+import { getSessionSafe } from "@/lib/auth-session";
 import { LoginButton } from "@/components/auth/login-button";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ const nav = [
 ] as const;
 
 export async function SiteHeader() {
-  const session = await auth();
+  const session = await getSessionSafe();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 shadow-evolucent-card backdrop-blur-md">
