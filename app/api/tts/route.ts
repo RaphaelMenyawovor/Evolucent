@@ -2,51 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 
 export const runtime = "nodejs"
 
-const TRANSLATION_URL = "https://translation-api.ghananlp.org/v1/translate"
-const TTS_URL = "https://translation-api.ghananlp.org/tts/v2/synthesize"
-
-const LANG_CONFIG: Record<string, { translationPair: string; ttsLanguage: string }> = {
-  tw:  { translationPair: "en-tw",  ttsLanguage: "twi" },
-  gaa: { translationPair: "en-gaa", ttsLanguage: "gaa" },
-  ee:  { translationPair: "en-ee",  ttsLanguage: "ewe" },
-  fat: { translationPair: "en-fat", ttsLanguage: "fante" },
-  dag: { translationPair: "en-dag", ttsLanguage: "dag" },
-}
-
-function getApiKeys() {
-  const primary = process.env.GHANANLP_API_KEY
-  const secondary = process.env.GHANANLP_API_KEY_SECONDARY
-  if (!primary && !secondary) return null
-  return [primary, secondary].filter(Boolean) as string[]
-}
-
-function ghanaNlpHeaders(apiKey: string) {
-  return {
-    "Content-Type": "application/json",
-    "Cache-Control": "no-cache",
-    "Ocp-Apim-Subscription-Key": apiKey,
-  }
-}
-
-async function fetchWithFallback(
-  url: string,
-  body: string,
-  keys: string[],
-): Promise<Response> {
-  let lastError: Error | null = null
-
-  for (const key of keys) {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: ghanaNlpHeaders(key),
-      body,
-    })
-    if (response.ok || response.status < 500) return response
-    lastError = new Error(`API returned ${response.status}`)
-  }
-
-  throw lastError ?? new Error("All API keys exhausted.")
-}
+/** Valid GhanaNLP TTS language codes */
+const TTS_LANGS = new Set(["tw", "ee", "gaa", "dag", "fat"])
 
 export async function POST(req: NextRequest) {
   const keys = getApiKeys()
@@ -66,7 +23,13 @@ export async function POST(req: NextRequest) {
     if (typeof text !== "string" || text.trim().length === 0) {
       return NextResponse.json(
         { error: "text is required and must be a non-empty string" },
-        { status: 400 },
+        { status: 400 }
+      )
+    }
+    if (!TTS_LANGS.has(language)) {
+      return NextResponse.json(
+        { error: `Unsupported TTS language: ${language}. Supported: ${[...TTS_LANGS].join(", ")}` },
+        { status: 400 }
       )
     }
   } catch {
@@ -78,10 +41,17 @@ export async function POST(req: NextRequest) {
   const safeText = text.trim().slice(0, 1000)
 
   try {
-    const translateRes = await fetchWithFallback(
-      TRANSLATION_URL,
-      JSON.stringify({ in: safeText, lang: config.translationPair }),
-      keys,
+    ghanaNlpRes = await fetch(
+      "https://translation-api.ghananlp.org/tts/v1/tts",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+          "Ocp-Apim-Subscription-Key": apiKey,
+        },
+        body: JSON.stringify({ text: safeText, language }),
+      }
     )
 
     if (!translateRes.ok) {

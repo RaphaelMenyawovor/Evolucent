@@ -1,63 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const TRANSLATION_URL = "https://translation-api.ghananlp.org/v1/translate";
-
-const LANG_PAIRS: Record<string, string> = {
-  English: "",
-  Twi: "en-tw",
-  Ewe: "en-ee",
-  Ga: "en-gaa",
-  Dagbani: "en-dag",
-  Fante: "en-fat",
+/** Map display language name → GhanaNLP API language code */
+const LANG_CODES: Record<string, string> = {
+  Twi: "tw",
+  Ewe: "ee",
+  Ga: "gaa",
+  Dagbani: "dag",
+  Fante: "fat",
 };
 
-const ALLOWED = new Set(Object.keys(LANG_PAIRS));
-
-function getApiKeys() {
-  const primary = process.env.GHANANLP_API_KEY;
-  const secondary = process.env.GHANANLP_API_KEY_SECONDARY;
-  if (!primary && !secondary) return null;
-  return [primary, secondary].filter(Boolean) as string[];
-}
-
-async function translateWithFallback(
-  text: string,
-  langPair: string,
-  keys: string[],
-): Promise<string> {
-  let lastError: Error | null = null;
-
-  for (const key of keys) {
-    const res = await fetch(TRANSLATION_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-        "Ocp-Apim-Subscription-Key": key,
-      },
-      body: JSON.stringify({ in: text, lang: langPair }),
-    });
-
-    if (res.ok) return res.text();
-    if (res.status < 500) {
-      throw new Error(`Translation API returned ${res.status}`);
-    }
-    lastError = new Error(`Translation API returned ${res.status}`);
-  }
-
-  throw lastError ?? new Error("All API keys exhausted.");
-}
+const ALLOWED = new Set(["English", ...Object.keys(LANG_CODES)]);
 
 export async function POST(req: NextRequest) {
-  const keys = getApiKeys();
-  if (!keys) {
+  const apiKey = process.env.GHANANLP_API_KEY;
+  if (!apiKey) {
     return NextResponse.json(
-      { error: "Translation service is not configured.", text: "" },
-      { status: 503 },
+      { error: "Translation service not configured.", text: "" },
+      { status: 503 }
     );
   }
 
   let body: {
+    /** Raw text (used by KhayaAIPlayer — overrides project fields) */
+    text?: string;
     projectTitle?: string;
     projectDescription?: string;
     projectRegion?: string;
@@ -73,6 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const {
+    text: rawText,
     projectTitle = "",
     projectDescription = "",
     projectRegion = "",
@@ -88,26 +54,65 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (language === "English") {
-    const summary =
-      `${projectTitle}. ${projectRegion}. ` +
-      `${projectDescription} ` +
-      `GHS ${amountRaised.toLocaleString()} raised of GHS ${targetAmount.toLocaleString()} target.`;
-    return NextResponse.json({ text: summary, language });
+  // Build source text — prefer explicit `text`, otherwise compose from project fields
+  const sourceText = (
+    rawText ??
+    [
+      projectTitle,
+      projectRegion ? `Located in ${projectRegion}.` : "",
+      projectDescription,
+      amountRaised > 0
+        ? `GHS ${amountRaised.toLocaleString()} raised of GHS ${targetAmount.toLocaleString()} target.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ")
+  )
+    .trim()
+    .slice(0, 800); // GhanaNLP character limit
+
+  // Return early if no text to translate
+  if (!sourceText) {
+    return NextResponse.json({ text: "", language, langCode: "en" });
   }
 
-  const langPair = LANG_PAIRS[language]!;
-  const sourceText =
-    `${projectTitle}. ${projectDescription} ` +
-    `${amountRaised.toLocaleString()} cedis raised of ${targetAmount.toLocaleString()} cedis target.`;
+  // English — return the source text as-is, no API call needed
+  if (language === "English") {
+    return NextResponse.json({ text: sourceText, language, langCode: "en" });
+  }
+
+  const langCode = LANG_CODES[language];
 
   try {
-    const translated = await translateWithFallback(
-      sourceText.slice(0, 1000),
-      langPair,
-      keys,
-    );
-    return NextResponse.json({ text: translated, language });
+    const res = await fetch("https://translation-api.ghananlp.org/v1/translate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Ocp-Apim-Subscription-Key": apiKey,
+      },
+      body: JSON.stringify({ in: "en", out: langCode, text: sourceText }),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      throw new Error(`GhanaNLP translate HTTP ${res.status}`);
+    }
+
+    // GhanaNLP returns plain translated text
+    const raw = await res.text();
+    let translatedText: string;
+    try {
+      // Handle in case the API wraps the result in JSON
+      const json = JSON.parse(raw) as Record<string, unknown>;
+      translatedText =
+        (json.translatedText as string) ??
+        (json.text as string) ??
+        raw;
+    } catch {
+      translatedText = raw;
+    }
+
+    return NextResponse.json({ text: translatedText.trim(), language, langCode });
   } catch (e) {
     console.error("[translate-project]", e);
     return NextResponse.json(

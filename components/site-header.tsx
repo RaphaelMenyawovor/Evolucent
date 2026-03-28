@@ -12,6 +12,7 @@ const nav = [
   { href: "/poll", label: "Poll" },
   { href: "/impact", label: "Impact" },
   { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/ledger", label: "Ledger" },
 ] as const;
 
 export async function SiteHeader() {
@@ -47,7 +48,7 @@ export async function SiteHeader() {
           <Link
             href="/#contribute"
             className={cn(
-              "hidden rounded-[var(--radius-md)] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-evolucent-card transition hover:bg-gold-dark hover:shadow-evolucent-elevated sm:inline-flex"
+              "hidden rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-evolucent-card transition hover:bg-gold-dark hover:shadow-evolucent-elevated sm:inline-flex"
             )}
           >
             Contribute →
@@ -56,7 +57,7 @@ export async function SiteHeader() {
             <div className="flex items-center gap-3">
               <Link
                 href="/account"
-                className="flex min-w-0 max-w-[200px] items-center gap-2 rounded-[var(--radius-md)] pr-1 transition hover:bg-muted/60"
+                className="flex min-w-0 max-w-50 items-center gap-2 rounded-md pr-1 transition hover:bg-muted/60"
               >
                 {session.user.image ? (
                   <Image

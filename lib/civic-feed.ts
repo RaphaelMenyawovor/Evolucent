@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createHash } from "node:crypto";
 import Parser from "rss-parser";
 
@@ -261,14 +261,11 @@ type RawRow = {
 async function enrichRowsWithAI(rows: RawRow[]): Promise<
   Map<number, { headline: string; post: string; concern: CivicConcern }>
 > {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
   const capped = rows.slice(0, AI_ROW_CAP);
   if (!apiKey || capped.length === 0) {
     return new Map();
   }
-
-  const model =
-    process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
 
   const payload = capped.map((r) => ({
     i: r.i,
@@ -276,15 +273,7 @@ async function enrichRowsWithAI(rows: RawRow[]): Promise<
     snippet: r.snippet.slice(0, 450),
   }));
 
-  const client = new Anthropic({ apiKey });
-
-  const message = await client.messages.create({
-    model,
-    max_tokens: 8000,
-    messages: [
-      {
-        role: "user",
-        content: `You help Evolucent, a Ghana civic transparency platform. Below is JSON of recent news headlines/snippets about Ghana (from public RSS).
+  const prompt = `You help Evolucent, a Ghana civic transparency platform. Below is JSON of recent news headlines/snippets about Ghana (from public RSS).
 
 Return ONLY a valid JSON array (no markdown fences, no commentary). One object per input row, same order, same "i" index as input.
 
@@ -294,13 +283,23 @@ Each object must be exactly:
 If a story is not clearly about public/civic life, still summarise the headline neutrally.
 
 Input:
-${JSON.stringify(payload)}`,
-      },
-    ],
+${JSON.stringify(payload)}`;
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const gemini = genAI.getGenerativeModel({
+    model: process.env.GOOGLE_AI_MODEL ?? "gemini-1.5-flash",
+    generationConfig: { responseMimeType: "application/json" },
   });
 
-  const block = message.content[0];
-  const text = block?.type === "text" ? block.text : "";
+  let result;
+  try {
+    result = await gemini.generateContent(prompt);
+  } catch (err) {
+    console.warn("AI enrichment failed (falling back to standard RSS):", err instanceof Error ? err.message : err);
+    return new Map();
+  }
+  
+  const text = result.response.text();
   if (!text) return new Map();
 
   let arr: unknown[];

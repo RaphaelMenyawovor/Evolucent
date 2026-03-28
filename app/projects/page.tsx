@@ -1,40 +1,33 @@
 import { prisma } from "@/src/db";
 import { ProjectsListing } from "@/components/ProjectsListing";
+import { prisma } from "@/src/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-  const [dbProjects, contributorCount, projectCounts] = await Promise.all([
-    prisma.project.findMany({
-      select: { id: true, currentAmount: true, region: true },
-    }),
-    prisma.contribution.groupBy({
-      by: ["userId"],
-      where: { status: "SUCCESS" },
-    }),
-    prisma.project.groupBy({
-      by: ["status"],
-      _count: { id: true },
-    }),
-  ]);
-
-  const progressMap: Record<string, number> = {};
-  for (const p of dbProjects) {
-    progressMap[p.id] = p.currentAmount;
-  }
-
-  const uniqueRegions = new Set(dbProjects.map((p) => p.region));
-  const activeCount =
-    projectCounts.find((g) => g.status === "ACTIVE")?._count.id ?? 0;
-  const totalProjects = projectCounts.reduce((sum, g) => sum + g._count.id, 0);
-  const completedCount = totalProjects - activeCount;
+  const [activeCount, fundedCount, regionRows, contributorCount] =
+    await Promise.all([
+      prisma.project.count({ where: { status: "ACTIVE" } }),
+      prisma.project.count({ where: { status: "FUNDED" } }),
+      prisma.project.findMany({
+        select: { region: true },
+        distinct: ["region"],
+      }),
+      prisma.contribution.count({ where: { status: "SUCCESS" } }),
+    ]).catch(() => [0, 0, [], 0] as const);
 
   const stats = [
-    { label: "Active Projects", value: String(activeCount || dbProjects.length) },
-    { label: "Completed", value: String(completedCount) },
-    { label: "Regions Covered", value: `${uniqueRegions.size}/16` },
-    { label: "Total Contributors", value: contributorCount.length.toLocaleString() },
-  ];
+    { label: "Active Projects", value: activeCount.toString() },
+    { label: "Completed", value: fundedCount.toString() },
+    {
+      label: "Regions Covered",
+      value: `${(regionRows as { region: string }[]).length}/16`,
+    },
+    {
+      label: "Total Contributors",
+      value: (contributorCount as number).toLocaleString("en-GH"),
+    },
+  ] as const;
 
   return (
     <main className="min-h-screen bg-evolucent-off-white dark:bg-background">

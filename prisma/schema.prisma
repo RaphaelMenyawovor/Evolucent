@@ -74,11 +74,12 @@ model Project {
 }
 
 model Contribution {
-  id        String   @id @default(cuid())
-  amount    Float
+  id         String   @id @default(cuid())
+  amount     Float
   paymentRef String   @unique
-  status    String   @default("PENDING")
-  createdAt DateTime @default(now())
+  status     String   @default("PENDING")
+  method     String?
+  createdAt  DateTime @default(now())
 
   projectId String
   project   Project  @relation(fields: [projectId], references: [id])

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { handlePaymentSuccess } from "@/lib/actions/hubtel"
+import { handlePaymentSuccess } from "@/lib/actions/paystack"
 import { PaymentSuccessView } from "./_components/payment-success-view"
 
 // searchParams is a Promise in Next.js 15+ — must be awaited
@@ -11,7 +11,7 @@ export default async function CallbackPage({
   const params = await searchParams
   const { clientReference, status } = params
 
-  // Hubtel redirects here with status=cancelled when the user aborts checkout
+  // PayStack redirects here with status=cancelled when the user aborts checkout
   if (status === "cancelled" || !clientReference) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">

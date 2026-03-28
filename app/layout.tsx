@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { SiteHeader } from "@/components/site-header";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { Providers } from "@/components/providers";
+import { Toaster } from "@/components/ui/sonner";
 
 const robotoHeading = Roboto({
   subsets: ["latin"],
@@ -74,6 +75,7 @@ export default function RootLayout({
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <OfflineIndicator />
+          <Toaster />
         </Providers>
       </body>
     </html>

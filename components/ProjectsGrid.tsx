@@ -21,7 +21,7 @@ function urgencyBadge(u: ProjectUrgency) {
   switch (u) {
     case "critical":
       return (
-        <Badge className="rounded-full border-0 bg-red-100 font-bold text-[var(--evolucent-red)] dark:bg-red-950/40 dark:text-red-300">
+        <Badge className="rounded-full border-0 bg-red-100 font-bold text-(--evolucent-red) dark:bg-red-950/40 dark:text-red-300">
           Critical
         </Badge>
       );
@@ -66,7 +66,7 @@ export function ProjectsGrid({
 
   if (projects.length === 0) {
     return (
-      <p className="rounded-[var(--radius-lg)] border border-border bg-card py-16 text-center text-muted-foreground">
+      <p className="rounded-lg border border-border bg-card py-16 text-center text-muted-foreground">
         No projects match these filters. Try adjusting category or region.
       </p>
     );
@@ -105,7 +105,7 @@ export function ProjectsGrid({
               </CardContent>
               <CardFooter className="border-t border-border/60">
                 <Button
-                  className="w-full rounded-[var(--radius-md)] bg-primary font-semibold text-primary-foreground hover:bg-gold-dark"
+                  className="w-full rounded-md bg-primary font-semibold text-primary-foreground hover:bg-gold-dark"
                   asChild
                 >
                   <Link href={`/project/${p.id}`}>
