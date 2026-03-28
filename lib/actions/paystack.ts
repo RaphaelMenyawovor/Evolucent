@@ -80,6 +80,15 @@ export async function verifyPayment(reference: string, projectId: string) {
     )
   }
 
+  // Ensure user still exists (local DB resets can leave orphaned JWTs)
+  const userExists = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true },
+  })
+  if (!userExists) {
+    throw new Error("Unauthenticated: User account not found. Please sign out and sign in again.")
+  }
+
   // Paystack amounts are in pesewas (1 GHS = 100 pesewas)
   const amountGHS = body.data.amount / 100
   const method = normaliseChannel(body.data.channel ?? "")
@@ -113,4 +122,45 @@ export async function verifyPayment(reference: string, projectId: string) {
   revalidatePath(`/projects/${projectId}`)
 
   return { projectId, amount: amountGHS }
+}
+
+/**
+ * Validates a payment exclusively by its Paystack reference.
+ * Lookups the project_id from Paystack's transaction metadata.
+ */
+export async function handlePaymentSuccess(reference: string) {
+  // Try finding it directly in our DB first
+  const existing = await prisma.contribution.findUnique({
+    where: { paymentRef: reference },
+    include: { project: { select: { id: true } } },
+  })
+  
+  if (existing?.status === "SUCCESS") {
+    return { projectId: existing.project.id, amount: existing.amount }
+  }
+
+  // If not yet verified or missing in DB, fetch from Paystack to find project_id metadata
+  const secretKey = process.env.PAYSTACK_SECRET_KEY
+  if (!secretKey) throw new Error("Missing PAYSTACK_SECRET_KEY")
+
+  const res = await fetch(
+    `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${secretKey}` },
+      cache: "no-store",
+    }
+  )
+
+  if (!res.ok) throw new Error("Paystack request failed")
+  
+  const data = await res.json()
+  const projectId = data?.data?.metadata?.project_id
+  
+  if (!projectId) {
+    throw new Error("Cannot associate this payment with a project: missing metadata.")
+  }
+
+  // Delegate the actual DB write and verification to verifyPayment
+  return verifyPayment(reference, projectId)
 }

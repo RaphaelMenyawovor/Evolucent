@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,51 +66,65 @@ export function ProjectContributionPanel({
 
     setIsProcessing(true);
 
-    const { default: PaystackPop } = await import("@paystack/inline-js");
-    const popup = new PaystackPop();
-
-    popup.newTransaction({
-      key: publicKey,
-      email: resolvedEmail,
-      amount: Math.round(numericAmount * 100), // pesewas
-      currency: "GHS",
-      metadata: { project_id: projectId },
-      onSuccess: async (txn) => {
-        toast.loading("Verifying payment…", { id: "payment-verify" });
-        try {
-          await verifyPayment(txn.reference, projectId);
-          toast.success("Contribution confirmed! Thank you.", {
-            id: "payment-verify",
-          });
-          setAmount("");
-          router.refresh();
-        } catch (err) {
-          const msg =
-            err instanceof Error ? err.message : "Verification failed";
-          // Surface a friendlier message for the unauthenticated case
-          toast.error(
-            msg === "Unauthenticated"
-              ? "Sign in first to record your contribution."
-              : msg,
-            { id: "payment-verify" }
-          );
-        } finally {
-          setIsProcessing(false);
-        }
-      },
-      onCancel: () => {
+    try {
+      // @ts-ignore
+      const PaystackPop = window.PaystackPop;
+      if (!PaystackPop) {
+        toast.error("Payment system is still loading. Please try again in a moment.");
         setIsProcessing(false);
-        toast.info("Payment cancelled.");
-      },
-    });
+        return;
+      }
+      
+      const popup = new PaystackPop();
+
+      popup.newTransaction({
+        key: publicKey,
+        email: resolvedEmail,
+        amount: Math.round(numericAmount * 100), // pesewas
+        currency: "GHS",
+        metadata: { project_id: projectId },
+        onSuccess: async (txn: any) => {
+          toast.loading("Verifying payment…", { id: "payment-verify" });
+          try {
+            await verifyPayment(txn.reference, projectId);
+            toast.success("Contribution confirmed! Thank you.", {
+              id: "payment-verify",
+            });
+            setAmount("");
+            router.refresh();
+          } catch (err) {
+            const msg =
+              err instanceof Error ? err.message : "Verification failed";
+            // Surface a friendlier message for the unauthenticated case
+            toast.error(
+              msg.includes("Unauthenticated")
+                ? "Sign in first to record your contribution."
+                : msg,
+              { id: "payment-verify" }
+            );
+          } finally {
+            setIsProcessing(false);
+          }
+        },
+        onCancel: () => {
+          setIsProcessing(false);
+          toast.info("Payment cancelled.");
+        },
+      });
+    } catch (e) {
+      console.error(e);
+      setIsProcessing(false);
+    }
   }
 
   return (
-    <Card className="shadow-evolucent-elevated ring-1 ring-border/60">
-      <CardHeader>
-        <CardDescription className="font-mono text-xs uppercase tracking-widest">
-          Live ledger
-        </CardDescription>
+    <>
+      <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
+      <Card className="shadow-evolucent-elevated ring-1 ring-border/60">
+        <CardHeader>
+          <CardDescription className="font-mono text-xs uppercase tracking-widest">
+            Live ledger
+          </CardDescription>
         <div className="flex flex-wrap items-end gap-2">
           <span className="font-mono text-sm text-muted-foreground">GHS</span>
           <AnimatedCounter
@@ -219,5 +234,6 @@ export function ProjectContributionPanel({
         </p>
       </CardContent>
     </Card>
+    </>
   );
 }

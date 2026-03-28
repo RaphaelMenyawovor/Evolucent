@@ -68,6 +68,11 @@ export async function POST(req: NextRequest) {
     .trim()
     .slice(0, 800); // GhanaNLP character limit
 
+  // Return early if no text to translate
+  if (!sourceText) {
+    return NextResponse.json({ text: "", language, langCode: "en" });
+  }
+
   // English — return the source text as-is, no API call needed
   if (language === "English") {
     return NextResponse.json({ text: sourceText, language, langCode: "en" });
