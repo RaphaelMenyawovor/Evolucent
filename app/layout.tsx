@@ -4,19 +4,31 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { SiteHeader } from "@/components/site-header";
 import { OfflineIndicator } from "@/components/offline-indicator";
+import { Providers } from "@/components/providers";
 
-const robotoHeading = Roboto({subsets:['latin'],variable:'--font-heading'});
+const robotoHeading = Roboto({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-roboto",
+  display: "swap",
+});
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const viewport: Viewport = {
@@ -24,12 +36,12 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#4f46e5",
+  themeColor: "#F5A623",
 };
 
 export const metadata: Metadata = {
   title: "Evolucent",
-  description: "A transparent evolution of civic funding",
+  description: "A transparent evolution of how citizens fund change",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -49,12 +61,20 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable, robotoHeading.variable)}
+      className={cn(
+        "h-full font-sans antialiased",
+        geistSans.variable,
+        geistMono.variable,
+        inter.variable,
+        robotoHeading.variable
+      )}
     >
-      <body className="min-h-full flex flex-col">
-        <SiteHeader />
-        {children}
-        <OfflineIndicator />
+      <body className={cn("min-h-full flex flex-col")}>
+        <Providers>
+          <SiteHeader />
+          <main className="flex-1">{children}</main>
+          <OfflineIndicator />
+        </Providers>
       </body>
     </html>
   );

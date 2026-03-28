@@ -1,49 +1,83 @@
-import Image from "next/image"
-import Link from "next/link"
-import { auth } from "@/auth"
-import { LoginButton } from "@/components/auth/login-button"
-import { SignOutButton } from "@/components/auth/sign-out-button"
+import Image from "next/image";
+import Link from "next/link";
+import { getSessionSafe } from "@/lib/auth-session";
+import { LoginButton } from "@/components/auth/login-button";
+import { SignOutButton } from "@/components/auth/sign-out-button";
+import { cn } from "@/lib/utils";
+
+const nav = [
+  { href: "/projects", label: "Projects" },
+  { href: "/feed", label: "Feed" },
+  { href: "/#pulse", label: "The Pulse" },
+  { href: "/poll", label: "Poll" },
+  { href: "/impact", label: "Impact" },
+  { href: "/leaderboard", label: "Leaderboard" },
+] as const;
 
 export async function SiteHeader() {
-  const session = await auth()
+  const session = await getSessionSafe();
 
   return (
-    <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 shadow-evolucent-card backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
         <Link
           href="/"
-          className="text-sm font-semibold text-zinc-900 dark:text-zinc-50"
+          className="flex items-center gap-2 font-display text-base font-bold tracking-tight text-foreground"
         >
-          Evolucent
+          <span className="text-gold" aria-hidden>
+            ✦
+          </span>
+          <span>EVOLUCENT</span>
         </Link>
-        <nav className="flex items-center gap-3">
+        <nav
+          className="hidden items-center gap-6 md:flex"
+          aria-label="Primary"
+        >
+          {nav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="flex items-center gap-3">
           <Link
-            href="/ledger"
-            className="text-sm text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+            href="/#contribute"
+            className={cn(
+              "hidden rounded-[var(--radius-md)] bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-evolucent-card transition hover:bg-gold-dark hover:shadow-evolucent-elevated sm:inline-flex"
+            )}
           >
-            Ledger
+            Contribute →
           </Link>
           {session?.user ? (
             <div className="flex items-center gap-3">
-              {session.user.image ? (
-                <Image
-                  src={session.user.image}
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                />
-              ) : null}
-              <span className="max-w-48 truncate text-sm text-zinc-700 dark:text-zinc-300">
-                {session.user.name ?? session.user.email ?? "Signed in"}
-              </span>
+              <Link
+                href="/account"
+                className="flex min-w-0 max-w-[200px] items-center gap-2 rounded-[var(--radius-md)] pr-1 transition hover:bg-muted/60"
+              >
+                {session.user.image ? (
+                  <Image
+                    src={session.user.image}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="rounded-full"
+                  />
+                ) : null}
+                <span className="truncate text-sm font-medium text-muted-foreground hover:text-foreground">
+                  {session.user.name ?? session.user.email ?? "Account"}
+                </span>
+              </Link>
               <SignOutButton />
             </div>
           ) : (
             <LoginButton />
           )}
-        </nav>
+        </div>
       </div>
     </header>
-  )
+  );
 }
