@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ShieldCheck, Loader2 } from "lucide-react"
-import { verifyGhanaCard } from "@/lib/actions/hubtel"
+import { verifyGhanaCard } from "@/lib/actions/paystack"
 
 export function VerifyIdentityForm() {
   const router = useRouter()

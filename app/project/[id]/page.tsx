@@ -20,8 +20,6 @@ import { getSessionSafe } from "@/lib/auth-session";
 import { prisma } from "@/src/db";
 import { formatGHS, formatRegion, formatTimestamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { auth } from "@/auth";
-import { prisma } from "@/src/db";
 
 type VerificationStep = {
   id: string;
