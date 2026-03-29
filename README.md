@@ -10,6 +10,13 @@ A transparent evolution of civic funding. Evolucent is a civic crowdfunding plat
 - **Styling:** Tailwind CSS v4 + shadcn/ui
 - **State:** Zustand + TanStack React Query
 - **PWA:** Installable progressive web app via `@ducanh2912/next-pwa`
+- **Ghanaian languages (Khaya AI):** GhanaNLP translation + TTS for Twi, Ewe, Ga, Dagbani, and Fante; browser TTS for English
+
+## Khaya AI (GhanaNLP)
+
+Project listening features use **Khaya** (GhanaNLP): server routes **`/api/translate-project`** (English → target language via `translation-api.ghananlp.org/v1/translate`) and **`/api/tts`** (WAV audio via `.../tts/v1/tts`). The UI components **`ProjectLanguageReader`** and **`KhayaAIPlayer`** orchestrate translate-then-speak; English uses the browser **`speechSynthesis`** API instead of Khaya TTS.
+
+Configure **`GHANANLP_API_KEY`** in `.env` (see `.env.example`). More detail: [docs/khaya-ai.md](docs/khaya-ai.md).
 
 ## Getting Started
 
