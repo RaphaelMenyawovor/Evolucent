@@ -3,6 +3,17 @@ import Google from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/src/db"
 
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.AUTH_URL?.includes("localhost")
+) {
+  throw new Error(
+    "[auth] AUTH_URL is set to localhost in production. " +
+    "Remove AUTH_URL entirely (NextAuth v5 auto-detects from the Host header with trustHost: true), " +
+    "or set it to your real production URL."
+  )
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [Google],
