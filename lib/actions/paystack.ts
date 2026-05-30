@@ -36,7 +36,7 @@ export async function verifyGhanaCard(idNumber: string) {
     throw new Error("Unauthenticated: User account not found.")
   }
 
-  const regex = /^GH-[0-9]{9}-[0-9]$/i
+  const regex = /^GH-[0-9]{9}-[0-9]$/
   if (!regex.test(idNumber)) {
     throw new Error("Invalid Ghana Card format. Expected GH-XXXXXXXXX-X")
   }

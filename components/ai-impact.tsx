@@ -1,6 +1,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { prisma } from "@/src/db"
 
+let _aiImpactModel: ReturnType<GoogleGenerativeAI["getGenerativeModel"]> | null = null
+function getAIImpactModel() {
+  if (_aiImpactModel) return _aiImpactModel
+  const key = process.env.GOOGLE_AI_API_KEY
+  if (!key) return null
+  _aiImpactModel = new GoogleGenerativeAI(key).getGenerativeModel({ model: "gemini-1.5-flash" })
+  return _aiImpactModel
+}
+
 interface AIImpactProps {
   project: {
     id: string
@@ -15,8 +24,8 @@ async function generateAndStoreImpactSummary(project: {
   title: string
   description: string
 }): Promise<string> {
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!)
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+  const model = getAIImpactModel()
+  if (!model) throw new Error("AI not configured")
 
   const prompt =
     `Summarize the following civic project's goals into exactly 3 concise bullet points ` +
@@ -26,9 +35,9 @@ async function generateAndStoreImpactSummary(project: {
   const result = await model.generateContent(prompt)
   const summary = result.response.text()
 
-  // Persist so subsequent renders skip the API call
-  await prisma.project.update({
-    where: { id: project.id },
+  // updateMany with the null guard prevents concurrent renders from racing to write
+  await prisma.project.updateMany({
+    where: { id: project.id, impactSummary: null },
     data: { impactSummary: summary },
   })
 
@@ -36,8 +45,8 @@ async function generateAndStoreImpactSummary(project: {
 }
 
 export async function AIImpact({ project }: AIImpactProps) {
-  if (!process.env.GOOGLE_AI_API_KEY) {
-    return null // graceful degradation when key is absent
+  if (!getAIImpactModel()) {
+    return null
   }
 
   let summary = project.impactSummary

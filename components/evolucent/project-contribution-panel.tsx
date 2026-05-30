@@ -43,7 +43,7 @@ export function ProjectContributionPanel({
   const [amount, setAmount] = React.useState("");
   const [email, setEmail] = React.useState(userEmail ?? "");
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const [demoMode, setDemoMode] = React.useState(false);
+  const [demoMode] = React.useState(false);
 
   async function handleFund() {
     const numericAmount = parseFloat(amount);
@@ -67,8 +67,7 @@ export function ProjectContributionPanel({
     setIsProcessing(true);
 
     try {
-      // @ts-ignore
-      const PaystackPop = window.PaystackPop;
+      const PaystackPop = (window as Window & { PaystackPop?: new () => { newTransaction: (opts: Record<string, unknown>) => void } }).PaystackPop;
       if (!PaystackPop) {
         toast.error("Payment system is still loading. Please try again in a moment.");
         setIsProcessing(false);

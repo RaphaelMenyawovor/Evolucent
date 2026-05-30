@@ -86,4 +86,8 @@ model Contribution {
 
   userId String
   user   User   @relation(fields: [userId], references: [id])
+
+  @@index([projectId, status])
+  @@index([userId, status])
+  @@index([status])
 }

@@ -17,6 +17,7 @@ interface KhayaAIPlayerProps {
   text: string
 }
 
+// Blob URLs cached indefinitely per session — bounded by (languages × unique texts)
 const audioCache = new Map<string, string>()
 
 function cacheKey(text: string, lang: LangCode) {
@@ -29,16 +30,11 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const blobUrlRef = useRef<string | null>(null)
 
   async function handlePlay() {
     if (isPlaying && audioRef.current) {
       audioRef.current.pause()
       audioRef.current = null
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current)
-        blobUrlRef.current = null
-      }
       setIsPlaying(false)
       return
     }
@@ -48,19 +44,21 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
     const key = cacheKey(text, language)
     const cached = audioCache.get(key)
     if (cached) {
-      const newAudio = new Audio(cached)
-      newAudio.addEventListener("ended", () => {
+      const audio = new Audio(cached)
+      audio.addEventListener("ended", () => {
         setIsPlaying(false)
         audioRef.current = null
       })
-      newAudio.addEventListener("error", () => {
+      audio.addEventListener("error", () => {
+        // Stale cached URL — evict and let user retry
+        audioCache.delete(key)
         setIsPlaying(false)
         audioRef.current = null
         setError("Audio playback failed.")
       })
-      audioRef.current = newAudio
+      audioRef.current = audio
       setIsPlaying(true)
-      await newAudio.play()
+      await audio.play()
       return
     }
 
@@ -96,7 +94,7 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
 
       const blob = await ttsRes.blob()
       const url = URL.createObjectURL(blob)
-      blobUrlRef.current = url
+      audioCache.set(key, url) // cache before playing — URL lives for the session
 
       const audio = new Audio(url)
       audioRef.current = audio
@@ -104,16 +102,15 @@ export function KhayaAIPlayer({ text }: KhayaAIPlayerProps) {
       audio.addEventListener("ended", () => {
         setIsPlaying(false)
         audioRef.current = null
-        URL.revokeObjectURL(url)
-        blobUrlRef.current = null
+        // URL stays in cache — not revoked
       })
 
       audio.addEventListener("error", () => {
         setIsPlaying(false)
         audioRef.current = null
         setError("Audio playback failed.")
+        audioCache.delete(key)
         URL.revokeObjectURL(url)
-        blobUrlRef.current = null
       })
 
       setIsPlaying(true)

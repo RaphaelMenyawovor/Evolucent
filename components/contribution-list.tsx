@@ -11,6 +11,7 @@ export async function ContributionList({ projectId }: ContributionListProps) {
     where: { projectId, status: "SUCCESS" },
     include: { user: { select: { name: true, kycStatus: true } } },
     orderBy: { createdAt: "desc" },
+    take: 50,
   })
 
   if (contributions.length === 0) {

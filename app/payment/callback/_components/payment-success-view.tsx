@@ -26,7 +26,7 @@ export function PaymentSuccessView({ projectId, amount }: PaymentSuccessViewProp
         Payment Successful!
       </h1>
       <p className="text-zinc-600 dark:text-zinc-400">
-        GHS {amount} contributed
+        GHS {amount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} contributed
       </p>
       <p className="text-sm text-zinc-400 dark:text-zinc-500">
         Redirecting you in 3 seconds&hellip;

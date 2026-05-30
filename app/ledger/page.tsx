@@ -20,6 +20,7 @@ export default async function LedgerPage() {
       project: { select: { title: true } },
     },
     orderBy: { createdAt: "desc" },
+    take: 100,
   })
 
   return (

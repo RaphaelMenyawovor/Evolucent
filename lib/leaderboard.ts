@@ -65,16 +65,18 @@ export async function getRegionalContributors(
   region: string,
   limit = 25,
 ): Promise<ContributorRow[]> {
+  // Fetch full user details up front — eliminates the third round-trip
   const regionalUsers = await prisma.user.findMany({
     where: { region },
-    select: { id: true },
+    select: { id: true, name: true, email: true, image: true, region: true },
   });
-  const ids = regionalUsers.map((u) => u.id);
-  if (ids.length === 0) return [];
+  if (regionalUsers.length === 0) return [];
+
+  const byId = new Map(regionalUsers.map((u) => [u.id, u]));
 
   const grouped = await prisma.contribution.groupBy({
     by: ["userId"],
-    where: { userId: { in: ids }, status: "SUCCESS" },
+    where: { userId: { in: regionalUsers.map((u) => u.id) }, status: "SUCCESS" },
     _sum: { amount: true },
     _count: { id: true },
     orderBy: { _sum: { amount: "desc" } },
@@ -82,18 +84,6 @@ export async function getRegionalContributors(
   });
 
   if (grouped.length === 0) return [];
-
-  const users = await prisma.user.findMany({
-    where: { id: { in: grouped.map((g) => g.userId) } },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
-      region: true,
-    },
-  });
-  const byId = new Map(users.map((u) => [u.id, u]));
 
   return grouped.map((g, i) => {
     const u = byId.get(g.userId);

@@ -62,7 +62,6 @@ const FEEDS: { url: string; mode: "google" | "standard" }[] = [
 ];
 
 export const CIVIC_FEED_MAX_STORIES = 48;
-const MAX_ITEMS = CIVIC_FEED_MAX_STORIES;
 const AI_ROW_CAP = 28;
 
 export const CIVIC_FEED_SOURCE_COUNT = FEEDS.length;
@@ -258,12 +257,24 @@ type RawRow = {
   feedImageUrl: string | null;
 };
 
+let _feedModel: ReturnType<GoogleGenerativeAI["getGenerativeModel"]> | null = null
+function getFeedModel() {
+  if (_feedModel) return _feedModel
+  const key = process.env.GOOGLE_AI_API_KEY
+  if (!key) return null
+  _feedModel = new GoogleGenerativeAI(key).getGenerativeModel({
+    model: process.env.GOOGLE_AI_MODEL ?? "gemini-1.5-flash",
+    generationConfig: { responseMimeType: "application/json" },
+  })
+  return _feedModel
+}
+
 async function enrichRowsWithAI(rows: RawRow[]): Promise<
   Map<number, { headline: string; post: string; concern: CivicConcern }>
 > {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  const gemini = getFeedModel();
   const capped = rows.slice(0, AI_ROW_CAP);
-  if (!apiKey || capped.length === 0) {
+  if (!gemini || capped.length === 0) {
     return new Map();
   }
 
@@ -284,12 +295,6 @@ If a story is not clearly about public/civic life, still summarise the headline 
 
 Input:
 ${JSON.stringify(payload)}`;
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const gemini = genAI.getGenerativeModel({
-    model: process.env.GOOGLE_AI_MODEL ?? "gemini-1.5-flash",
-    generationConfig: { responseMimeType: "application/json" },
-  });
 
   let result;
   try {
@@ -456,7 +461,7 @@ export async function getCivicFeed(): Promise<{
     (a, b) => b.publishedAt.getTime() - a.publishedAt.getTime(),
   );
 
-  const sliced = deduped.slice(0, MAX_ITEMS);
+  const sliced = deduped.slice(0, CIVIC_FEED_MAX_STORIES);
 
   const rows: RawRow[] = sliced.map((p, i) => ({
     i,

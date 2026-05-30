@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { prisma } from "@/src/db"
 
-export const dynamic = "force-dynamic"
+let _impactModel: ReturnType<GoogleGenerativeAI["getGenerativeModel"]> | null = null
+function getImpactModel() {
+  if (_impactModel) return _impactModel
+  const key = process.env.GOOGLE_AI_API_KEY
+  if (!key) return null
+  _impactModel = new GoogleGenerativeAI(key).getGenerativeModel({ model: "gemini-2.0-flash" })
+  return _impactModel
+}
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.GOOGLE_AI_API_KEY
-  if (!apiKey) {
+  const model = getImpactModel()
+  if (!model) {
     return NextResponse.json(
       { error: "AI service not configured" },
       { status: 503 },
@@ -81,15 +88,10 @@ export async function POST(req: NextRequest) {
       `Be specific with quantities (e.g. bags of cement, meters of pipe, solar panels, waste bins). ` +
       `Keep it warm, concrete, and under 30 words. Do not use quotation marks. Do not mention the goal or total raised.`
 
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
     const result = await model.generateContent(prompt)
     const statement = result.response.text().trim()
 
-    return NextResponse.json(
-      { statement, amount, projectTitle: title },
-      { headers: { "Cache-Control": "public, max-age=300" } },
-    )
+    return NextResponse.json({ statement, amount, projectTitle: title })
   } catch (error) {
     console.error("[impact]", error)
     return NextResponse.json(
